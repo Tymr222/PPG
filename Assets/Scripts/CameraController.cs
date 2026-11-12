@@ -5,6 +5,16 @@ public class CameraController : MonoBehaviour
     public Transform player;
     public bool topDown = false;
 
+    [Header("Celowanie")]
+    public WeaponController weapon;
+    public float aimFov = 35f;
+    public float aimDistanceFactor = 0.6f;
+    public float aimBlendSpeed = 8f;
+
+    float normalFov;
+    float aimBlend = 0f;
+    Camera cam;
+
     [Header("Kamera TPP")]
     public float distance = 5f;
     public float minDistance = 2f;
@@ -28,17 +38,19 @@ public class CameraController : MonoBehaviour
 
     float pitch = 15f;
     float blend = 0f;            // 0 = TPP, 1 = top-down
-    Vector3 focus;               // punkt na ziemi, na który patrzy kamera top-down
+    Vector3 focus;
 
     void Start()
     {
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
+        cam = GetComponent<Camera>();
+        normalFov = cam.fieldOfView;
     }
 
     void LateUpdate()
     {
-        // ---------- Przełączanie SPACJĄ (pkt 7) ----------
+        // Przełączanie SPACJĄ
         if (Input.GetKeyDown(KeyCode.Space))
         {
             topDown = !topDown;
@@ -62,7 +74,7 @@ public class CameraController : MonoBehaviour
 
         float scroll = Input.GetAxis("Mouse ScrollWheel");
 
-        // ---------- Obliczenia kamery TPP (pkt 5, 6) ----------
+        // Obliczenia kamery TPP
         if (!topDown)
         {
             pitch -= Input.GetAxis("Mouse Y") * mouseSensitivity;
@@ -72,7 +84,10 @@ public class CameraController : MonoBehaviour
 
         Quaternion tppRot = Quaternion.Euler(pitch, player.eulerAngles.y, 0f);
         Vector3 pivot = player.position + Vector3.up * pivotHeight;
-        Vector3 tppPos = pivot - tppRot * Vector3.forward * distance;
+        float aimTarget = (weapon != null && weapon.IsAiming) ? 1f : 0f;
+        aimBlend = Mathf.MoveTowards(aimBlend, aimTarget, aimBlendSpeed * Time.deltaTime);
+        float effectiveDistance = distance * Mathf.Lerp(1f, aimDistanceFactor, aimBlend);
+        Vector3 tppPos = pivot - tppRot * Vector3.forward * effectiveDistance;
 
         // kamera nie wchodzi w ściany
         if (Physics.Linecast(pivot, tppPos, out RaycastHit hit))
@@ -81,7 +96,7 @@ public class CameraController : MonoBehaviour
                 tppPos = hit.point + hit.normal * 0.2f;
         }
 
-        // ---------- Obliczenia kamery top-down (pkt 7) ----------
+        // Obliczenia kamery top-down
         if (topDown)
         {
             float h = Input.GetAxisRaw("Horizontal");
@@ -96,8 +111,9 @@ public class CameraController : MonoBehaviour
         Quaternion topRot = Quaternion.Euler(topAngle, 0f, 0f);
         Vector3 topPos = focus + new Vector3(0f, topHeight, -topHeight / Mathf.Tan(topAngle * Mathf.Deg2Rad));
 
-        // ---------- Ustawienie kamery ----------
+        // Ustawienie kamery
         transform.position = Vector3.Lerp(tppPos, topPos, t);
         transform.rotation = Quaternion.Slerp(tppRot, topRot, t);
+        cam.fieldOfView = Mathf.Lerp(normalFov, aimFov, aimBlend);
     }
 }

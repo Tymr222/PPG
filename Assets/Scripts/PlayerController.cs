@@ -3,15 +3,17 @@ using UnityEngine;
 [RequireComponent(typeof(CharacterController))]
 public class PlayerController : MonoBehaviour
 {
-    public CameraController cameraController;   // przeciągnij Main Camera
-    public Animator animator;                    // przeciągnij Animator z Player
+    public CameraController cameraController;
+    public Animator animator;
+    public WeaponController weapon;
 
+    public float aimSpeedMultiplier = 0.5f;
     public float walkSpeed = 2f;
     public float crouchSpeed = 2f;
     public float jumpHeight = 1.2f;
     public float gravity = -20f;
     public float mouseSensitivity = 2f;
-    public float turnSpeed = 540f;               // obrót w stronę celu w top-down
+    public float turnSpeed = 540f;
 
     public float standHeight = 1.8f;
     public float crouchHeight = 1.1f;
@@ -33,21 +35,22 @@ public class PlayerController : MonoBehaviour
         bool grounded = cc.isGrounded;
         if (grounded && verticalVelocity < 0f) verticalVelocity = -2f;
 
-        // ---------- Kucanie (C) ----------
+        // Kucanie (C)
         isCrouching = Input.GetKey(KeyCode.C) && !topDown;
         float targetHeight = isCrouching ? crouchHeight : standHeight;
         cc.height = Mathf.Lerp(cc.height, targetHeight, Time.deltaTime * 12f);
         cc.center = new Vector3(0f, cc.height / 2f, 0f);
 
         float speed = isCrouching ? crouchSpeed : walkSpeed;
+        if (weapon != null && weapon.IsAiming) speed *= aimSpeedMultiplier;
         Vector3 move = Vector3.zero;
 
         if (!topDown)
         {
-            // ---------- Obrót myszą (pkt 5) ----------
+            // Obrót myszą 
             transform.Rotate(0f, Input.GetAxis("Mouse X") * mouseSensitivity, 0f);
 
-            // ---------- Ruch WASD (pkt 3) ----------
+            // Ruch WASD
             float h = Input.GetAxisRaw("Horizontal");
             float v = Input.GetAxisRaw("Vertical");
             move = (transform.right * h + transform.forward * v);
@@ -55,7 +58,7 @@ public class PlayerController : MonoBehaviour
             move *= speed;
             hasTarget = false;   // anuluj ruch po kliknięciu po powrocie do TPP
 
-            // ---------- Skok (Left Shift) ----------
+            // Skok (Left Shift)
             if (Input.GetKeyDown(KeyCode.LeftShift) && grounded && !isCrouching)
             {
                 verticalVelocity = Mathf.Sqrt(jumpHeight * -2f * gravity);
@@ -67,7 +70,7 @@ public class PlayerController : MonoBehaviour
         }
         else
         {
-            // ---------- Ruch do punktu klikniętego PPM (pkt 8) ----------
+            // Ruch do punktu klikniętego PPM
             if (Input.GetMouseButtonDown(1))
             {
                 Ray ray = cameraController.GetComponent<Camera>().ScreenPointToRay(Input.mousePosition);
@@ -97,12 +100,12 @@ public class PlayerController : MonoBehaviour
             }
         }
 
-        // ---------- Grawitacja i ruch z kolizjami (pkt 4) ----------
+        // Grawitacja i ruch z kolizjami
         verticalVelocity += gravity * Time.deltaTime;
         Vector3 velocity = move + Vector3.up * verticalVelocity;
         cc.Move(velocity * Time.deltaTime);
 
-        // ---------- Animator ----------
+        // Animator
         if (animator != null)
         {
             bool inAir = !cc.isGrounded;
